@@ -19,10 +19,13 @@
 #include <avr/io.h>
 #include <inttypes.h>
 #include <stdlib.h>
+#include <string.h>
+#include <stdio.h>
 #include <inttypes.h>
 #include <avr/interrupt.h>
 
 #include	"HardwareDef.h"
+//#include	"MacOS.h"
 
 #ifdef _ENABLE_FLASH_FILE_SYSTEM_
 
@@ -40,7 +43,17 @@
 
 #define	_USE_DBBUG_RECT_STATUS_
 
-#ifdef _TOUCH_SLIDE_
+#ifdef __cplusplus
+	extern "C"{
+#endif
+void	DebugRectPrintText(char *theText);
+
+#ifdef __cplusplus
+} // extern "C"
+#endif
+
+
+#ifdef _TOUCH_SLIDE_foo
 //*******************************************************************************
 static void	arduinoReset(void)
 {
@@ -67,10 +80,12 @@ static void	arduinoRun(void)
 //*	this can also be considered ERASE
 static void	FlashFileFormat(void)
 {
-	dispPutS("Erasing",0,0,white,black);
+//	dispPutS("Erasing",0,0,white,black);
+	text("Erasing",0,0);
 	dataflash_erase();
 	usart_putc(IMAGE_INTERFACE_PAGE_DONE); //ok
-	dispPutS("Erasing Done",0,10,white,black);
+//	dispPutS("Erasing Done",0,10,white,black);
+	text("Erasing Done",0,10);
 
 }
 
@@ -92,11 +107,31 @@ long	ii;
 #define	kAscii_NAK 0x15
 
 //*******************************************************************************
+static void	SendAck(void)
+{
+	DebugRectPrintText("sending ACK +++");
+	usart_putc(kAscii_ACK);
+	usart_puts("ACK");
+	
+}
+
+//*******************************************************************************
+static void	SendNAK(void)
+{
+	DebugRectPrintText("sending NAK ---");
+
+	usart_putc(kAscii_NAK);
+	usart_puts("NAK");
+	
+}
+
+//*******************************************************************************
 static void	FlashFileDownload(void)
 {
 unsigned int	xx;
 unsigned int	ii,wait,wait2;
-unsigned char	out_data[DATAFLASH_PAGESIZE],in_data[DATAFLASH_PAGESIZE];
+//unsigned char	out_data[DATAFLASH_PAGESIZE],in_data[DATAFLASH_PAGESIZE];
+char			msgBuff[48];
 unsigned char	*buff;
 unsigned int	page_count;
 long			newFileSize;
@@ -145,33 +180,29 @@ long			longByte4;
 			page_count++;
 		}
 
-	//	strcpy(out_data, "File=");
-	//	strncat(out_data, &buff[5], 12);
-	//	out_data[17]	=	0;
-		
-	//	strncpy(newFileName, &buff[5], 12);
-		strncpy(newFileName, buff + 5, 12);
+		strncpy(newFileName, (char *)buff + 5, 12);
 		newFileName[12]	=	0;
 		
-		sprintf(out_data, "File=%s, size=%ld page=%d", newFileName, newFileSize, page_count);
-		DebugRectPrintText(out_data);
+		sprintf(msgBuff, "File=%s, size=%ld page=%d", newFileName, newFileSize, page_count);
+		DebugRectPrintText(msgBuff);
 		
 		DelayBigTime();
-		usart_putc(kAscii_ACK);
+		SendAck();
 
 		for (ii=0; ii< page_count; ii++)
 		{
 		unsigned int buffer_count	=	0;
 
 			usart_read_bytes(519);	//read the whole page
+			buff	=	usart_getBuff_ptr();
 			DelayBigTime();
 			if (buff[0] == 0x02)	//*	look for STX
 			{
-				usart_putc(kAscii_ACK);
+				SendAck();
 			}
 			else
 			{
-				usart_putc(kAscii_NAK);
+				SendNAK();
 			}
 		#if 0
 
